@@ -51,6 +51,8 @@ class SpiderMan(ABC):
         self.downloader = html_downloader
         self.parser = html_parser
         self.data_store = data_store
+        self.producer_queue = queue.Queue()
+        self.lock = threading.Lock()
 
     # do something at the end (optional)
     @abstractmethod
@@ -80,21 +82,24 @@ class SpiderMan(ABC):
             self.data_store.store(data)
         except Exception as e:
             self.manager.add_failed_url(url)
-            print(e)
 
-    def consume(self, producer, thread_no, timeout=5):
-        while self.manager.has_new_url() or self.manager.has_processing_url() or not producer.empty():
+    def consume(self, thread_no, timeout=5):
+        while self.manager.has_new_url() or self.manager.has_processing_url() or not self.producer_queue.empty():
             try:
-                task = producer.get(True, timeout=timeout)
+                task = self.producer_queue.get(True, timeout=timeout)
             except queue.Empty:
                 continue
             url = task['url']
             num = task['num']
-            print(f"\nWorker {thread_no} processing {ordinal(num)} url: {url}")
+            self.lock.acquire()
+            print(f"Worker {thread_no} processing {ordinal(num)} url: {url}")
+            self.lock.release()
             self.process_url(url)
-            producer.task_done()
-            print(f"\nWorker {thread_no} processed {ordinal(num)} url : pending url: {self.manager.new_url_size()} "
+            self.producer_queue.task_done()
+            self.lock.acquire()
+            print(f"Worker {thread_no} processed {ordinal(num)} url : pending url: {self.manager.new_url_size()} "
                   f"processing url: {self.manager.processing_url_size()} processed url: {self.manager.old_url_size()}")
+            self.lock.release()
 
     def spider(self, origin_urls, no_threads=10):
         # add origin urls
@@ -102,10 +107,9 @@ class SpiderMan(ABC):
 
         print(f'{self.manager.new_url_size()} origin urls added!')
         num = 0
-        producer_queue = queue.Queue()
         # start consumer threads
         for i in range(no_threads):
-            consumer = threading.Thread(target=self.consume, args=(producer_queue, i,), daemon=True)
+            consumer = threading.Thread(target=self.consume, args=(i,), daemon=True)
             consumer.start()
         # start looping
         while (self.manager.has_new_url() or self.manager.has_processing_url()) and self.manager.continue_scrape():
@@ -113,9 +117,9 @@ class SpiderMan(ABC):
             new_url = self.manager.get_new_url()
             num = num + 1
             # add task to queue
-            producer_queue.put({"url": new_url, "num": num})
+            self.producer_queue.put({"url": new_url, "num": num})
 
-        producer_queue.join()
+        self.producer_queue.join()
         print(f"\n#######################################\n{self.manager.old_url_size()} urls processed.")
         if self.manager.failed_url_size() > 0:
             self.error_logging()
