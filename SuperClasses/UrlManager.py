@@ -1,4 +1,7 @@
-class UrlManager:
+from abc import ABC, abstractmethod
+
+
+class UrlManager(ABC):
 
     def __init__(self):
         self.new_urls = set()
@@ -18,3 +21,8 @@ class UrlManager:
 
     def old_url_size(self):
         return len(self.old_urls)
+
+    @abstractmethod
+    # Tell Spider when to stop scrape
+    def continue_scrape(self) -> bool:
+        pass

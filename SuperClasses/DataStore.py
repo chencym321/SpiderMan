@@ -1,8 +1,9 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 
-class DataStore:
+class DataStore(ABC):
 
+    # save data
     @abstractmethod
-    def store(self, html):
+    def store(self, data):
         pass

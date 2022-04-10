@@ -1,22 +1,19 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 
 new_urls = set()
 data = {}
 
 
-class SpiderMan(object):
+class SpiderMan(ABC):
 
     def __init__(self, url_manager, html_downloader, html_parser, data_store):
+        print("111")
         # 调度器内包含其它四个元件，在初始化调度器的时候也要建立四个元件对象的实例
         self.manager = url_manager
         self.downloader = html_downloader
         self.parser = html_parser
         self.data_store = data_store
-
-    @abstractmethod
-    def continue_scrape(self):
-        pass
 
     # do something at the end
     @abstractmethod
@@ -31,7 +28,7 @@ class SpiderMan(object):
         self.manager.add_new_url(origin_url)
         # 下面进入主循环，暂定爬取页面总数小于100
         num = 0
-        while self.manager.has_new_url() and self.continue_scrape():
+        while self.manager.has_new_url() and self.manager.continue_scrape():
             try:
                 num = num + 1
                 print("正在处理第{}个链接".format(num))
