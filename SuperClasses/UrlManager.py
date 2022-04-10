@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from functools import singledispatchmethod
 
 
 class UrlManager(ABC):
@@ -7,7 +8,7 @@ class UrlManager(ABC):
         self.new_urls = set()
         self.old_urls = set()
         self.processing_urls = set()
-        self.failed_url = set()
+        self.failed_urls = set()
 
     def get_new_url(self):
         url = self.new_urls.pop()
@@ -20,15 +21,22 @@ class UrlManager(ABC):
     def has_processing_url(self):
         return len(self.processing_urls) > 0
 
-    def add_new_url(self, url):
-        self.new_urls.update(url)
+    @singledispatchmethod
+    def add_new_url(self, urls: list):
+        for url in urls:
+            self.add_new_url(url)
+
+    @add_new_url.register
+    def _(self, url: str):
+        if url not in self.new_urls.union(self.old_urls, self.processing_urls, self.failed_urls):
+            self.new_urls.add(url)
 
     def add_old_url(self, url):
         self.processing_urls.remove(url)
         self.old_urls.add(url)
 
     def add_failed_url(self, url):
-        self.failed_url.add(url)
+        self.failed_urls.add(url)
 
     def old_url_size(self):
         return len(self.old_urls)
@@ -40,7 +48,7 @@ class UrlManager(ABC):
         return len(self.processing_urls)
 
     def failed_url_size(self):
-        return len(self.failed_url)
+        return len(self.failed_urls)
 
     @abstractmethod
     # Tell Spider when to stop scrape

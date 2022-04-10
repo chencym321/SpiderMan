@@ -90,17 +90,17 @@ class SpiderMan(ABC):
                 continue
             url = task['url']
             num = task['num']
-            print(f"Worker {thread_no} processing {ordinal(num)} url: {url}")
+            print(f"\nWorker {thread_no} processing {ordinal(num)} url: {url}")
             self.process_url(url)
             producer.task_done()
-            print(f"Worker {thread_no} processed {ordinal(num)} url : pending url: {self.manager.new_url_size()} "
+            print(f"\nWorker {thread_no} processed {ordinal(num)} url : pending url: {self.manager.new_url_size()} "
                   f"processing url: {self.manager.processing_url_size()} processed url: {self.manager.old_url_size()}")
 
     def spider(self, origin_urls, no_threads=10):
         # add origin urls
         self.manager.add_new_url(origin_urls)
 
-        print(f'{len(origin_urls)} origin urls added!')
+        print(f'{self.manager.new_url_size()} origin urls added!')
         num = 0
         producer_queue = queue.Queue()
         # start consumer threads
