@@ -17,7 +17,7 @@ class UrlManager(ABC):
         return self.new_urls.pop()
 
     def add_old_url(self, url):
-        self.old_urls.update(url)
+        self.old_urls.add(url)
 
     def old_url_size(self):
         return len(self.old_urls)

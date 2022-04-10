@@ -1,14 +1,27 @@
 from abc import ABC, abstractmethod
+import threading
 
 
 new_urls = set()
 data = {}
 
 
+def ordinal(n):
+    if 11 <= n <= 13:
+        return str(n) + 'th'
+    elif n % 10 == 1:
+        return str(n) + 'st'
+    elif n % 10 == 2:
+        return str(n) + 'nd'
+    elif n % 10 == 3:
+        return str(n) + 'rd'
+    else:
+        return str(n) + 'th'
+
+
 class SpiderMan(ABC):
 
     def __init__(self, url_manager, html_downloader, html_parser, data_store):
-        print("111")
         # 调度器内包含其它四个元件，在初始化调度器的时候也要建立四个元件对象的实例
         self.manager = url_manager
         self.downloader = html_downloader
@@ -20,38 +33,49 @@ class SpiderMan(ABC):
     def callback(self):
         pass
 
-    def spider(self, origin_url):
-        # 添加初始url
-
+    def process_url(self, url, num):
         global new_urls
         global data
-        self.manager.add_new_url(origin_url)
-        # 下面进入主循环，暂定爬取页面总数小于100
-        num = 0
-        while self.manager.has_new_url() and self.manager.continue_scrape():
+        try:
+            print(f"Processing {ordinal(num)} url: {url}")
+            # download html as bs4 or selenium
+            html = self.downloader.download(url)
+            # parse html and return new urls and data
             try:
-                num = num + 1
-                print("正在处理第{}个链接".format(num))
-                # 从新url仓库中获取url
-                new_url = self.manager.get_new_url()
-                # 调用html下载器下载页面
-                html = self.downloader.download(new_url)
-                # 调用解析器解析页面，返回新的url和data
-                try:
-                    new_urls, data = self.parser.parser(html)
-                except Exception as e:
-                    print(e)
-                for url in new_urls:
-                    self.manager.add_new_url(url)
-                # 将已经爬取过的这个url添加至老url仓库中
-                self.manager.add_old_url(new_url)
-                # 将返回的数据存储至文件
-                try:
-                    self.data_store.store(data)
-                    print("store data successfully")
-                except Exception as e:
-                    print(e)
-                print("第{}个链接已经抓取完成".format(self.manager.old_url_size()))
+                new_urls, data = self.parser.parser(html)
             except Exception as e:
                 print(e)
+            self.manager.add_new_url(new_urls)
+            # add processed url to old_url
+            self.manager.add_old_url(url)
+            # save data
+            try:
+                self.data_store.store(data)
+            except Exception as e:
+                print(e)
+            print(f"{ordinal(num)} url processed: {url}")
+        except Exception as e:
+            print(e)
+
+    def spider(self, origin_urls):
+        # add origin urls
+        self.manager.add_new_url(origin_urls)
+
+        print(f'{len(origin_urls)} origin urls added!')
+
+        # start looping
+        num = 0
+        processing_threads = []
+        while self.manager.has_new_url() and self.manager.continue_scrape():
+            # get new url from url manager
+            new_url = self.manager.get_new_url()
+            num = num + 1
+            processing_thread = threading.Thread(target=self.process_url, args=(new_url, num,))
+            processing_thread.start()
+            processing_threads.append(processing_thread)
+        print("\n#######################################\nNo more new url, waiting for existing process to finish.")
+        for pthread in processing_threads:
+            if pthread.is_alive():
+                pthread.join()
+        print("\n#######################################\nAll urls processed.")
         self.callback()
