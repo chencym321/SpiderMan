@@ -1,3 +1,26 @@
+#                    _ooOoo_
+#                   o8888888o
+#                   88" . "88
+#                   (| -_- |)
+#                    O\ = /O
+#                ____/`---'\____
+#              .   ' \\| |// `.
+#               / \\||| : |||// \
+#             / _||||| -:- |||||- \
+#               | | \\\ - /// | |
+#             | \_| ''\---/'' | |
+#              \ .-\__ `-` ___/-. /
+#           ___`. .' /--.--\ `. . __
+#        ."" '< `.___\_<|>_/___.' >'"".
+#       | | : `- \`.;`\ _ /`;.`/ - ` : | |
+#         \ \ `-. \_ __\ /__ _/ .-` / /
+# ======`-.____`-.___\_____/___.-`____.-'======
+#                    `=---='
+#
+# .............................................
+#          佛祖保佑             永无BUG
+
+
 from abc import ABC, abstractmethod
 import threading
 
@@ -22,13 +45,13 @@ def ordinal(n):
 class SpiderMan(ABC):
 
     def __init__(self, url_manager, html_downloader, html_parser, data_store):
-        # 调度器内包含其它四个元件，在初始化调度器的时候也要建立四个元件对象的实例
+        # Instantiate  UrlManager, HtmlDownloader, HtmlParser and DataStore and assigned to SpiderMan instance
         self.manager = url_manager
         self.downloader = html_downloader
         self.parser = html_parser
         self.data_store = data_store
 
-    # do something at the end
+    # do something at the end (optional)
     @abstractmethod
     def callback(self):
         pass
@@ -41,18 +64,13 @@ class SpiderMan(ABC):
             # download html as bs4 or selenium
             html = self.downloader.download(url)
             # parse html and return new urls and data
-            try:
-                new_urls, data = self.parser.parser(html)
-            except Exception as e:
-                print(e)
+            new_urls, data = self.parser.parser(html)
+            # add new urls parsed from html
             self.manager.add_new_url(new_urls)
             # add processed url to old_url
             self.manager.add_old_url(url)
             # save data
-            try:
-                self.data_store.store(data)
-            except Exception as e:
-                print(e)
+            self.data_store.store(data)
             print(f"{ordinal(num)} url processed: {url}")
         except Exception as e:
             print(e)
@@ -62,7 +80,6 @@ class SpiderMan(ABC):
         self.manager.add_new_url(origin_urls)
 
         print(f'{len(origin_urls)} origin urls added!')
-
         # start looping
         num = 0
         processing_threads = []
