@@ -23,6 +23,7 @@
 
 from abc import ABC, abstractmethod
 import threading
+import queue
 
 
 new_urls = set()
@@ -56,11 +57,15 @@ class SpiderMan(ABC):
     def callback(self):
         pass
 
-    def process_url(self, url, num):
+    # called when url failed to process
+    @abstractmethod
+    def error_logging(self):
+        pass
+
+    def process_url(self, url):
         global new_urls
         global data
         try:
-            print(f"Processing {ordinal(num)} url: {url}")
             # download html as bs4 or selenium
             html = self.downloader.download(url)
             # parse html and return new urls and data
@@ -71,28 +76,45 @@ class SpiderMan(ABC):
             self.manager.add_old_url(url)
             # save data
             self.data_store.store(data)
-            print(f"{ordinal(num)} url processed: {url}")
         except Exception as e:
+            self.manager.add_failed_url(url)
             print(e)
 
-    def spider(self, origin_urls):
+    def consume(self, producer, thread_no, timeout=5):
+        while self.manager.has_new_url() or self.manager.has_processing_url() or not producer.empty():
+            try:
+                task = producer.get(True, timeout=timeout)
+            except queue.Empty:
+                continue
+            url = task['url']
+            num = task['num']
+            print(f"Worker {thread_no} processing {ordinal(num)} url: {url}")
+            self.process_url(url)
+            producer.task_done()
+            print(f"Worker {thread_no} processed {ordinal(num)} url : pending url: {self.manager.new_url_size()} "
+                  f"processing url: {self.manager.processing_url_size()} processed url: {self.manager.old_url_size()}")
+
+    def spider(self, origin_urls, no_threads=10):
         # add origin urls
         self.manager.add_new_url(origin_urls)
 
         print(f'{len(origin_urls)} origin urls added!')
-        # start looping
         num = 0
-        processing_threads = []
-        while self.manager.has_new_url() and self.manager.continue_scrape():
+        producer_queue = queue.Queue()
+        # start consumer threads
+        for i in range(no_threads):
+            consumer = threading.Thread(target=self.consume, args=(producer_queue, i,), daemon=True)
+            consumer.start()
+        # start looping
+        while (self.manager.has_new_url() or self.manager.has_processing_url()) and self.manager.continue_scrape():
             # get new url from url manager
             new_url = self.manager.get_new_url()
             num = num + 1
-            processing_thread = threading.Thread(target=self.process_url, args=(new_url, num,))
-            processing_thread.start()
-            processing_threads.append(processing_thread)
-        print("\n#######################################\nNo more new url, waiting for existing process to finish.")
-        for pthread in processing_threads:
-            if pthread.is_alive():
-                pthread.join()
-        print("\n#######################################\nAll urls processed.")
+            # add task to queue
+            producer_queue.put({"url": new_url, "num": num})
+
+        producer_queue.join()
+        print(f"\n#######################################\n{self.manager.old_url_size()} urls processed.")
+        if self.manager.failed_url_size() > 0:
+            self.error_logging()
         self.callback()
