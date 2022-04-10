@@ -58,9 +58,11 @@ class SpiderMan(ABC):
         pass
 
     # called when url failed to process
-    @abstractmethod
     def error_logging(self):
-        pass
+        failed_log = 'failed_url.log'
+        print(f"{self.manager.failed_url_size()} urls failed, see {failed_log}")
+        with open(failed_log, 'w+') as wf:
+            wf.write('\n'.join(list(self.manager.failed_url)))
 
     def process_url(self, url):
         global new_urls
