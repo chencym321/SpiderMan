@@ -28,6 +28,19 @@ import queue
 
 new_urls = set()
 data = {}
+# importing enum for enumerations
+
+
+class PrintColors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 
 def ordinal(n):
@@ -64,7 +77,7 @@ class SpiderMan(ABC):
         failed_log = 'failed_url.log'
         print(f"{self.manager.failed_url_size()} urls failed, see {failed_log}")
         with open(failed_log, 'w+') as wf:
-            wf.write('\n'.join(list(self.manager.failed_url)))
+            wf.write('\n'.join(list(self.manager.failed_urls)))
 
     def process_url(self, url):
         global new_urls
@@ -81,6 +94,7 @@ class SpiderMan(ABC):
             # save data
             self.data_store.store(data)
         except Exception as e:
+            print(PrintColors.FAIL + str(e).split('\n')[0] + PrintColors.ENDC)
             self.manager.add_failed_url(url)
 
     def consume(self, thread_no, timeout=5):
